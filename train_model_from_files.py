@@ -4,14 +4,22 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 import os
+import pickle
 
-# Load input and output data from files
-input_data = pd.read_csv('MLINPUT1.txt', delim_whitespace=True, header=None).values
-output_data = pd.read_csv('MLOUTPUT1.txt', delim_whitespace=True, header=None).values
+# Load input data from a pickle file
+with open('MLINPUT1.pkl', 'rb') as f:
+    input_data = pickle.load(f)
 
-# Convert data to PyTorch tensors
-input_tensor = torch.tensor(input_data, dtype=torch.float32)
-output_tensor = torch.tensor(output_data, dtype=torch.float32)
+# Load output data from a text file
+output_data = pd.read_csv('MLOUTPUT1.txt', sep='\s+', header=None).values
+
+# Convert data to PyTorch tensors, handling non-numeric values
+input_tensor = torch.tensor(pd.DataFrame(input_data).apply(pd.to_numeric, errors='coerce').fillna(0).values, dtype=torch.float32)
+output_tensor = torch.tensor(pd.DataFrame(output_data).apply(pd.to_numeric, errors='coerce').fillna(0).values, dtype=torch.float32)
+
+# Print the shapes of the input and output tensors to verify dimensions
+print('Input tensor shape:', input_tensor.shape)
+print('Output tensor shape:', output_tensor.shape)
 
 # Create a dataset and data loader
 train_dataset = TensorDataset(input_tensor, output_tensor)
@@ -46,8 +54,8 @@ def train_until_accuracy(input_file, output_file, model, criterion, optimizer, t
     output_data = pd.read_csv(output_file, delim_whitespace=True, header=None).values
 
     # Convert data to PyTorch tensors
-    input_tensor = torch.tensor(input_data, dtype=torch.float32)
-    output_tensor = torch.tensor(output_data, dtype=torch.float32)
+    input_tensor = torch.tensor(pd.DataFrame(input_data).apply(pd.to_numeric, errors='coerce').fillna(0).values, dtype=torch.float32)
+    output_tensor = torch.tensor(pd.DataFrame(output_data).apply(pd.to_numeric, errors='coerce').fillna(0).values, dtype=torch.float32)
 
     # Create a dataset and data loader
     train_dataset = TensorDataset(input_tensor, output_tensor)
