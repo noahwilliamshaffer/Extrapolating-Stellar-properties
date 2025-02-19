@@ -38,8 +38,22 @@ else:
 # Print the shapes of the input and output tensors to debug size mismatch
 print('Input tensor shape:', input_tensor.shape)
 
+def preprocess_output_data(file_path):
+    # Read the output file
+    try:
+        data = pd.read_csv(file_path, sep='\t', header=None)
+    except FileNotFoundError:
+        print(f"File {file_path} not found.")
+        return None
+
+    # Coerce non-numeric values to numeric and fill NaNs with zeros
+    data = data.apply(pd.to_numeric, errors='coerce').fillna(0)
+    data_tensor = torch.tensor(data.values, dtype=torch.float32)
+
+    return data_tensor
+
 # Load and preprocess output data
-output_tensor = preprocess_input_data('outputfile.txt')
+output_tensor = preprocess_output_data('outputfile.txt')
 
 # Check if output data is loaded
 if output_tensor is not None:
@@ -47,38 +61,39 @@ if output_tensor is not None:
 else:
     print('Failed to load output data.')
 
-# Print the shapes of the input and output tensors to debug size mismatch
-print('Output tensor shape:', output_tensor.shape)
+# Ensure input and output data have the same number of samples
+if input_tensor.shape[0] != output_tensor.shape[0]:
+    print('Mismatch in number of samples between input and output data.')
+else:
+    # Create a dataset and data loader
+    train_dataset = TensorDataset(input_tensor, output_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 
-# Create a dataset and data loader
-train_dataset = TensorDataset(input_tensor, output_tensor)
-train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
+    # Initialize the model, loss function, and optimizer
+    input_size = input_tensor.shape[1]
+    output_size = output_tensor.shape[1]
+    model = SimpleNN(input_size, output_size)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Initialize the model, loss function, and optimizer
-input_size = input_tensor.shape[1]
-output_size = output_tensor.shape[1]
-model = SimpleNN(input_size, output_size)
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # Training loop
+    num_epochs = 10
+    for epoch in range(num_epochs):
+        for inputs, targets in train_loader:
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
+        print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}')
 
-# Training loop
-num_epochs = 10
-for epoch in range(num_epochs):
-    for inputs, targets in train_loader:
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
-    print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}')
+    # Evaluate the model
+    with torch.no_grad():
+        predictions = model(input_tensor)
+        comparison_result = torch.allclose(predictions, output_tensor, atol=1e-2)
 
-# Evaluate the model
-with torch.no_grad():
-    predictions = model(input_tensor)
-    comparison_result = torch.allclose(predictions, output_tensor, atol=1e-2)
-
-# Print comparison result
-print('Model predictions are close to the output data:', comparison_result)
+    # Print comparison result
+    print('Model predictions are close to the output data:', comparison_result)
 
 # Further steps will include model definition, training, and evaluation
 # This is just the initial setup for data loading and preprocessing. 
