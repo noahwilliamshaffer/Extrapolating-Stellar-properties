@@ -1,1 +1,0 @@
-# Extrapolating-Stellar-properties
